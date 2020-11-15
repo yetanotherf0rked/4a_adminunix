@@ -1,0 +1,147 @@
+# Configuring ssh session
+loadkeys fr
+dhcpcd eth0
+passwd
+/etc/init.d/sshd start
+ssh root@
+
+# Disks
+cfdisk /dev/sda
+fdisk -l /dev/sda
+  sda1  /boot   512Mo   bootable
+  sda2  /       11Go     root
+  sda3  swap   2Go     swap
+  sda4  swap    2Go   swap
+  sda5 /home    2Go   home
+  sda 6 raid1   2Go
+  sda7 raid2    2Go
+
+
+# Creating file systems
+mke2fs /dev/sda1      # ext2
+mke2fs -j /dev/sda2   # ext3
+mkswap /dev/sda3 && swapon /dev/sda3
+mke2fs -j /dev/sda5   # ext3
+
+# Hostname
+nano -w /etc/conf.d/hostname
+    malki
+
+mount /dev/sda2 /mnt/gentoo
+mkdir /mnt/gentoo/boot
+mount /dev/sda1 /mnt/gentoo/boot
+mkdir /mnt/gentoo/home
+mount /dev/sda5 /mnt/gentoo/home
+
+# Date
+date
+date MMJJhhmmAAAA
+
+# Stage 3
+scp stage3* root@172.16.12.135:/mnt/gentoo
+cd /mnt/gentoo
+tar xJvpf stage*
+ls -lh
+
+# Chroot
+cd /
+mount -t proc none /mnt/gentoo/proc
+mount -o bind /dev /mnt/gentoo/dev
+mount -o bind /sys /mnt/gentoo/sys
+chroot /mnt/gentoo /bin/bash
+env-update && source /etc/profile
+export PS1="[chroot] $PS1"
+
+
+# Portage Distfiles and Packages
+scp portage-latest.tar.bz2 root@172.16.12.135:/mnt/gentoo/usr
+scp distfiles.tar.bz2 root@172.16.12.135:/mnt/gentoo/var/cache/
+scp packages.tar.bz2 root@172.16.12.135:/mnt/gentoo/var/cache/
+cd /usr
+tar xjvpf portage-latest.tar.bz2
+cd /var/cache/
+tar xjvpf packages.tar.bz2
+tar xjvpf distfiles.tar.bz2
+ln -s /usr/portage /var/db/repos/gentoo
+env-update
+
+# Locale / Zone info
+cp /usr/share/zoneinfo/Europe/Paris /etc/localtime
+date
+date MMJJhhmmAAAA
+
+# Nom de la machine
+emerge -K vim
+vim /etc/hosts
+  127.0.0.1 malki localhost
+vim /etc/conf.d/hostname
+  malki
+hostname malki
+hostname -f
+
+# Kernel
+emerge -K gentoo-kernel-bin
+
+# FSTAB
+vim /etc/fstab
+    /dev/sda1               /boot           ext2            noauto,noatime  1 2
+    /dev/sda2               /               ext3            noatime         0 1
+    /dev/sda3               none            swap            sw              0 0
+    /dev/sda5               /home           ext3            noatime         0 2
+
+# Mdp Root
+passwd
+
+# Clock
+vim /etc/conf.d/clock
+  TIMEZONE="Europe/Paris"
+
+# Disposition clavier
+vim /etc/conf.d/keymaps
+  keymap="fr"
+
+# Services
+emerge -K cronie syslog-ng grub apache proftpd
+rc-update add syslog-ng default
+rc-update add cronie default
+rc-update add apache default
+rc-update add proftpd default
+rc-update add sshd default
+
+# SSH
+vim /etc/ssh/sshd_config
+  PermitRootLogin yes
+
+# Grub
+grub-install /dev/sda 
+grub-mkconfig -o /boot/grub/grub.cfg
+
+# Pour avoir internet au redémarrage
+ln -s /etc/init.d/net.lo /etc/init.d/net.eno16777736
+# /etc/init.d/net.eno16777736 start
+rc-update add net.eno16777736 boot
+
+# Redémarrage
+exit
+umount /mnt/gentoo/proc /mnt/gentoo/boot /mnt/gentoo/home /mnt/gentoo
+reboot 
+
+# SSH
+ssh root@172.16.12.135
+
+# Utilisateur
+useradd -g toto -G users,wheel -m toto
+passwd john
+
+# Apache
+
+# Locale
+vim /etc/locale.gen
+  fr_FR.UTF-8 UTF-8
+locale-gen
+eselect locale list
+eselect locale set 4
+. /etc/profile
+
+
+
